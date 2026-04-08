@@ -1,0 +1,261 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Stack for React-AWS-App: RDS, Lambda and API Gateway'
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: 'VPC ID for the RDS cluster'
+  DBName:
+    Type: String
+    Default: appdb
+  DBUser:
+    Type: String
+    Default: postgres
+  DBPassword:
+    Type: String
+    Default: DevPassword123!
+    NoEcho: true
+  AppName:
+    Type: String
+    Default: react-aws-app
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, qa, prod]
+  Bucket:
+    Type: String
+    Description: 'S3 bucket for Lambda code'
+  CodeVersion:
+    Type: String
+    Description: 'Version identifier for Lambda code'
+    Default: 'v1.0.0'
+
+Resources:
+  # ─── NETWORK CONFIGURATION ──────────────────────────────────────────────────
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    DeletionPolicy: Delete
+    Properties:
+      VpcId: !Ref VpcId
+      CidrBlock: 172.31.96.0/20
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${AppName}-SubnetA-PostgreSQL-Private-${Environment}'
+        - Key: Project
+          Value: Learning-AWS
+        - Key: Environment
+          Value: !Ref Environment
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    DeletionPolicy: Delete
+    Properties:
+      VpcId: !Ref VpcId
+      CidrBlock: 172.31.112.0/20
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${AppName}-SubnetB-PostgreSQL-Private-${Environment}'
+        - Key: Project
+          Value: Learning-AWS
+        - Key: Environment
+          Value: !Ref Environment
+  # ─── SECURITY GROUPS ────────────────────────────────────────────────────────
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Delete
+    Properties:
+      GroupName: !Sub '${AppName}-rds-sg-${Environment}'
+      GroupDescription: 'Security group for RDS PostgreSQL cluster'
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref LambdaSecurityGroup
+          Description: 'Allow Lambda to connect to RDS'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AppName}-rds-sg-${Environment}'
+        - Key: Environment
+          Value: !Ref Environment
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    DeletionPolicy: Delete
+    Properties:
+      GroupName: !Sub '${AppName}-lambda-sg-${Environment}'
+      GroupDescription: 'Security group for Lambda functions'
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub '${AppName}-lambda-sg-${Environment}'
+        - Key: Environment
+          Value: !Ref Environment
+  RDSSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    DeletionPolicy: Delete
+    Properties:
+      DBSubnetGroupDescription: 'Subnet group for RDS PostgreSQL cluster'
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+      Tags:
+        - Key: Name
+          Value: !Sub '${AppName}-rds-subnet-group-${Environment}'
+        - Key: Environment
+          Value: !Ref Environment
+  # ─── DATABASE SETUP ─────────────────────────────────────────────────────────
+  ReactAwsAppDatabase:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      DBInstanceIdentifier: !Sub '${AppName}-db-${Environment}'
+      DBName: !Ref DBName
+      AllocatedStorage: 20
+      StorageType: gp2
+      DBInstanceClass: db.t3.micro
+      Engine: postgres
+      EngineVersion: '16.13'
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      DBSubnetGroupName: !Ref RDSSubnetGroup
+      PubliclyAccessible: false
+      DeleteAutomatedBackups: true
+      EnableIAMDatabaseAuthentication: true
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${AppName}-db-${Environment}'
+        - Key: Environment
+          Value: !Ref Environment
+  # ─── LAMBDAS & IAM ROLE ─────────────────────────────────────────────────────
+  RDSLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AppName}-rds-lambda-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  DBInitFunction:
+    Type: AWS::Lambda::Function
+    DeletionPolicy: Delete
+    Properties:
+      FunctionName: !Sub '${AppName}-db-init-${Environment}'
+      Runtime: nodejs20.x
+      Role: !GetAtt RDSLambdaRole.Arn
+      Handler: index.handler
+      Timeout: 60
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnetA
+          - !Ref PrivateSubnetB
+      Environment:
+        Variables:
+          DB_HOST: !GetAtt ReactAwsAppDatabase.Endpoint.Address
+          DB_PORT: !GetAtt ReactAwsAppDatabase.Endpoint.Port
+          DB_NAME: !Ref DBName
+          DB_USER: !Ref DBUser
+          DB_PASSWORD: !Ref DBPassword
+          ENVIRONMENT: !Ref Environment
+      Code:
+        S3Bucket: !Ref Bucket
+        S3Key: !Sub db-init-${CodeVersion}.zip
+  UserRightsFunction:
+    Type: AWS::Lambda::Function
+    DeletionPolicy: Delete
+    Properties:
+      FunctionName: !Sub '${AppName}-user-rights-${Environment}'
+      Runtime: nodejs20.x
+      Role: !GetAtt RDSLambdaRole.Arn
+      Handler: index.handler
+      Timeout: 30
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnetA
+          - !Ref PrivateSubnetB
+      Environment:
+        Variables:
+          DB_HOST: !GetAtt ReactAwsAppDatabase.Endpoint.Address
+          DB_PORT: !GetAtt ReactAwsAppDatabase.Endpoint.Port
+          DB_NAME: !Ref DBName
+          DB_USER: !Ref DBUser
+          DB_PASSWORD: !Ref DBPassword
+          ENVIRONMENT: !Ref Environment
+      Code:
+        S3Bucket: !Ref Bucket
+        S3Key: !Sub user-rights-${CodeVersion}.zip
+  # ─── API GATEWAY ────────────────────────────────────────────────────────────
+  UserRightsApi:
+    DeletionPolicy: Delete
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${AppName}-api-${Environment}'
+      Description: 'API for managing user rights in the React-AWS-App'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - 'http://localhost:5173'
+          - 'http://localhost:3000'
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+  UserRightsStage:
+    DeletionPolicy: Delete
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref UserRightsApi
+      StageName: !Ref Environment
+      AutoDeploy: true
+  UserRightsIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    DeletionPolicy: Delete
+    Properties:
+      ApiId: !Ref UserRightsApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt UserRightsFunction.Arn
+      PayloadFormatVersion: '2.0'
+  UserRightsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    DeletionPolicy: Delete
+    Properties:
+      ApiId: !Ref UserRightsApi
+      RouteKey: 'GET /user-rights'
+      Target: !Sub 'integrations/${UserRightsIntegration}'
+  UserRightsPermission:
+    Type: AWS::Lambda::Permission
+    DeletionPolicy: Delete
+    Properties:
+      FunctionName: !Ref UserRightsFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${UserRightsApi}/*'
+# ─── OUTPUT ───────────────────────────────────────────────────────────────────
+Outputs:
+  DatabaseEndpoint:
+    Description: 'Endpoint for the RDS PostgreSQL database'
+    Value: !GetAtt ReactAwsAppDatabase.Endpoint.Address
+    Export:
+      Name: !Sub '${AppName}-db-endpoint-${Environment}'
+  UserRightsApiEndpoint:
+    Description: 'Endpoint for the User Rights API'
+    Value: !Sub 'https://${UserRightsApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/user-rights'
+    Export:
+      Name: !Sub '${AppName}-api-endpoint-${Environment}'

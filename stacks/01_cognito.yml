@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: react-cognito-app Cognito User Pool 
+Description: react-aws-app Cognito User Pool 
 
 Parameters:
     AppName:

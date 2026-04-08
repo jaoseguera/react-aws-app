@@ -24,7 +24,7 @@
     </mxCell>
 
     <!-- Lambda -->
-    <mxCell id="6" value="Lambda&#xa;get-user-rights" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+    <mxCell id="6" value="Lambda&#xa;user-rights" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;" vertex="1" parent="1">
       <mxGeometry x="600" y="200" width="120" height="60" as="geometry"/>
     </mxCell>
 
