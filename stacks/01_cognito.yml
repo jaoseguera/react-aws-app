@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: react-cognito-app Cognito User Pool 
+
+Parameters:
+    AppName:
+        Type: String
+        Default: react-aws-app
+    Environment:
+        Type: String
+        Default: dev
+        AllowedValues: [dev, staging, prod]
+
+Resources:
+    UserPool:
+        Type: AWS::Cognito::UserPool
+        Properties:
+            UserPoolName: !Sub '${AppName}-${Environment}'
+            UsernameAttributes:
+                - email
+            AutoVerifiedAttributes:
+                - email
+            Policies:
+                PasswordPolicy:
+                    MinimumLength: 8
+                    RequireUppercase: true
+                    RequireLowercase: true
+                    RequireNumbers: true
+                    RequireSymbols: false
+
+    UserPoolClient:
+        Type: AWS::Cognito::UserPoolClient
+        Properties:
+            ClientName: !Sub '${AppName}-web-${Environment}'
+            UserPoolId: !Ref UserPool
+            GenerateSecret: false
+            ExplicitAuthFlows:
+                - ADMIN_NO_SRP_AUTH
+                - USER_PASSWORD_AUTH
+            CallbackURLs:
+                - 'http://localhost:5173'
+            LogoutURLs:
+                - 'http://localhost:5173'
+            AllowedOAuthFlows:
+                - code
+            AllowedOAuthScopes:
+                - email
+                - openid
+                - phone
+            AllowedOAuthFlowsUserPoolClient: true
+            SupportedIdentityProviders:
+                - COGNITO
+    
+    UserPoolDomain:
+        Type: AWS::Cognito::UserPoolDomain
+        Properties:
+            Domain: !Sub '${AppName}-${Environment}-XXXXXX'
+            UserPoolId: !Ref UserPool
+
+Outputs:
+    UserPoolId:
+        Description: Cognito User Pool's ID
+        Value: !Ref UserPool
+        Export:
+            Name: !Sub '${AppName}-${Environment}-UserPoolId'
+        
+    UserPoolClientId:
+        Description: Cognito User Pool Client's ID
+        Value: !Ref UserPoolClient
+        Export:
+            Name: !Sub '${AppName}-${Environment}-UserPoolClientId'
+    UserPoolDomain:
+        Description: Cognito User Pool Domain
+        Value: !Sub 'https://${AppName}-${Environment}-XXXXXX.auth.${AWS::Region}.amazoncognito.com'
+        Export:
+            Name: !Sub '${AppName}-${Environment}-UserPoolDomain'
