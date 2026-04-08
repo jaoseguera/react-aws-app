@@ -1,0 +1,113 @@
+<mxGraphModel>
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <!-- User -->
+    <mxCell id="2" value="User&#xa;Browser" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="200" width="100" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- CloudFront + S3 -->
+    <mxCell id="3" value="CloudFront + S3&#xa;React App" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="200" y="200" width="120" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- Cognito -->
+    <mxCell id="4" value="Amazon Cognito&#xa;User Pool + JWT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="200" y="60" width="120" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- API Gateway -->
+    <mxCell id="5" value="API Gateway&#xa;GET /rights" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="400" y="200" width="120" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- Lambda -->
+    <mxCell id="6" value="Lambda&#xa;get-user-rights" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="600" y="200" width="120" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- VPC -->
+    <mxCell id="7" value="VPC — Private Subnets" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#23445d;fontSize=12;fontStyle=2;dashed=1;verticalAlign=top;" vertex="1" parent="1">
+      <mxGeometry x="380" y="320" width="400" height="200" as="geometry"/>
+    </mxCell>
+
+    <!-- Subnet 1a -->
+    <mxCell id="8" value="Private Subnet&#xa;us-east-1a" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#82b366;fontSize=11;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="400" y="360" width="140" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- Subnet 1b -->
+    <mxCell id="9" value="Private Subnet&#xa;us-east-1b" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#82b366;fontSize=11;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="620" y="360" width="140" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- RDS -->
+    <mxCell id="10" value="RDS PostgreSQL 16&#xa;table: user_rights" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="460" y="440" width="180" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- Security Group Lambda -->
+    <mxCell id="11" value="Security Group — Lambda&#xa;outbound port 5432" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="380" width="180" height="50" as="geometry"/>
+    </mxCell>
+
+    <!-- Security Group Aurora -->
+    <mxCell id="12" value="Security Group — RDS&#xa;inbound port 5432 from Lambda SG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;dashed=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="450" width="220" height="50" as="geometry"/>
+    </mxCell>
+
+    <!-- CloudFormation -->
+    <mxCell id="13" value="CloudFormation&#xa;cognito.yaml&#xa;infrastructure.yaml" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;dashed=1;fontStyle=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="520" width="180" height="70" as="geometry"/>
+    </mxCell>
+
+    <!-- GitHub Actions -->
+    <mxCell id="14" value="GitHub Actions&#xa;CI/CD Pipeline" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="260" y="520" width="160" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- Arrows -->
+    <!-- User -> CloudFront -->
+    <mxCell id="15" value="HTTPS" style="edgeStyle=orthogonalEdgeStyle;fontSize=11;" edge="1" source="2" target="3" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- CloudFront -> Cognito (login redirect) -->
+    <mxCell id="16" value="login redirect" style="edgeStyle=orthogonalEdgeStyle;fontSize=11;dashed=1;strokeColor=#9673a6;" edge="1" source="3" target="4" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- Cognito -> CloudFront (JWT) -->
+    <mxCell id="17" value="JWT token" style="edgeStyle=orthogonalEdgeStyle;fontSize=11;dashed=1;strokeColor=#9673a6;" edge="1" source="4" target="3" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="180" y="90"/>
+          <mxPoint x="180" y="230"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <!-- CloudFront -> API Gateway -->
+    <mxCell id="18" value="Bearer token" style="edgeStyle=orthogonalEdgeStyle;fontSize=11;strokeColor=#82b366;" edge="1" source="3" target="5" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- Cognito -> API Gateway (validate JWT) -->
+    <mxCell id="19" value="validate JWT" style="edgeStyle=orthogonalEdgeStyle;fontSize=11;dashed=1;strokeColor=#9673a6;" edge="1" source="4" target="5" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- API Gateway -> Lambda -->
+    <mxCell id="20" value="" style="edgeStyle=orthogonalEdgeStyle;fontSize=11;strokeColor=#82b366;" edge="1" source="5" target="6" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <!-- Lambda -> RDS -->
+    <mxCell id="21" value="SELECT rights" style="edgeStyle=orthogonalEdgeStyle;fontSize=11;strokeColor=#b85450;" edge="1" source="6" target="10" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+  </root>
+</mxGraphModel>
