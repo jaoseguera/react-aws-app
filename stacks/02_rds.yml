@@ -29,6 +29,10 @@ Parameters:
     Type: String
     Description: 'Version identifier for Lambda code'
     Default: 'v1.0.0'
+  CognitoUserPoolId:
+    Type: String
+  CognitoClientId:
+    Type: String
 
 Resources:
   # ─── NETWORK CONFIGURATION ──────────────────────────────────────────────────
@@ -232,6 +236,18 @@ Resources:
       IntegrationType: AWS_PROXY
       IntegrationUri: !GetAtt UserRightsFunction.Arn
       PayloadFormatVersion: '2.0'
+  UserRightsAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref UserRightsApi
+      AuthorizerType: JWT
+      Name: !Sub '${AppName}-cognito-authorizer-${Environment}'
+      IdentitySource: 
+        - '$request.header.Authorization'
+      JwtConfiguration:
+        Audience:
+          - !Ref CognitoClientId
+        Issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}'
   UserRightsRoute:
     Type: AWS::ApiGatewayV2::Route
     DeletionPolicy: Delete
@@ -239,6 +255,8 @@ Resources:
       ApiId: !Ref UserRightsApi
       RouteKey: 'GET /user-rights'
       Target: !Sub 'integrations/${UserRightsIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref UserRightsAuthorizer
   UserRightsPermission:
     Type: AWS::Lambda::Permission
     DeletionPolicy: Delete

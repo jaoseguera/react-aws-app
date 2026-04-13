@@ -15,7 +15,7 @@ function App() {
     const fetchRights = async () => {
       setLoading(true)
       try {
-        const response = await fetch(`${API_URL}/rights`, {
+        const response = await fetch(`${API_URL}/user-rights`, {
           headers: {
             Authorization: `Bearer ${auth.user?.access_token}`
           }

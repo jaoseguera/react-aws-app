@@ -4,7 +4,7 @@ exports.handler = async (event) => {
     console.log('Raw event:', JSON.stringify(event));
 
     // Cognito inserts the connected user's sub via JWT
-    const userSub = event.requestContext.authorizer.claims.sub;
+    const userSub = event.requestContext.authorizer.jwt.claims.sub;
 
     if(!userSub) {
         return {
@@ -26,7 +26,7 @@ exports.handler = async (event) => {
     try {
         await client.connect();
 
-        const result = await client.query('SELECT rights FROM users_rights WHERE user_sub = $1', [userSub]);
+        const result = await client.query('SELECT rights FROM user_rights WHERE user_sub = $1', [userSub]);
 
         await client.end();
 

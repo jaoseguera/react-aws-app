@@ -17,21 +17,21 @@ exports.handler = async (event) => {
         console.log('Connected to database');
 
         await client.query(`
-            CREATE TABLE IF NOT EXISTS users_rights (
+            CREATE TABLE IF NOT EXISTS user_rights (
                 id          SERIAL PRIMARY KEY,
                 user_sub    VARCHAR(255) NOT NULL UNIQUE,
                 rights     JSONB NOT NULL DEFAULT '[]',
                 created_at  TIMESTAMP DEFAULT NOW()
             );
         `);
-        console.log('Table users_rights created');
+        console.log('Table user_rights created');
 
         await client.query(`
-            INSERT INTO users_rights (user_sub, rights)
+            INSERT INTO user_rights (user_sub, rights)
             VALUES ('test-user', '["read_reports", "view_dashboard"]')
             ON CONFLICT (user_sub) DO NOTHING
         `);
-        console.log('Table users_rights populated');
+        console.log('Table user_rights populated');
 
         await client.end();
         return {

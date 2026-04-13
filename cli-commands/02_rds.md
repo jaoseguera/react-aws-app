@@ -178,18 +178,16 @@ aws cloudformation describe-stack-events --stack-name react-aws-app-rds-stack-de
 # Check the stack status
 aws cloudformation describe-stacks \
   --stack-name react-aws-app-rds-stack-dev \
-  --region us-east-1 \
+  --region [REGION] \
   --query "Stacks[0].StackStatus"
 
 # If it is ROLLBACK_COMPLETE or CREATE_FAILED
 # Delte and redeploy
 aws cloudformation delete-stack \
   --stack-name react-aws-app-rds-stack-dev \
-  --region us-east-1
 
 aws cloudformation wait stack-delete-complete \
   --stack-name react-aws-app-rds-stack-dev \
-  --region us-east-1
 ```
 
 # CLEANING
