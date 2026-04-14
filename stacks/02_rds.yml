@@ -11,10 +11,9 @@ Parameters:
   DBUser:
     Type: String
     Default: postgres
-  DBPassword:
-    Type: String
-    Default: DevPassword123!
-    NoEcho: true
+  DBPort:
+    Type: Number
+    Default: 5432
   AppName:
     Type: String
     Default: react-aws-app
@@ -64,6 +63,18 @@ Resources:
           Value: Learning-AWS
         - Key: Environment
           Value: !Ref Environment
+  SecretsManagerEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.secretsmanager'
+      VpcEndpointType: Interface
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+      SecurityGroupIds:
+        - !Ref LambdaSecurityGroup
+      PrivateDnsEnabled: true
   # ─── SECURITY GROUPS ────────────────────────────────────────────────────────
   RDSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -74,8 +85,8 @@ Resources:
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
+          FromPort: !Ref DBPort
+          ToPort: !Ref DBPort
           SourceSecurityGroupId: !Ref LambdaSecurityGroup
           Description: 'Allow Lambda to connect to RDS'
       Tags:
@@ -95,6 +106,16 @@ Resources:
           Value: !Sub '${AppName}-lambda-sg-${Environment}'
         - Key: Environment
           Value: !Ref Environment
+  EndpointIngress:
+        Type: AWS::EC2::SecurityGroupIngress
+        DeletionPolicy: Delete
+        Properties:
+          GroupId: !Ref LambdaSecurityGroup
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref LambdaSecurityGroup
+          Description: 'Allow Lambda to access Secrets Manager endpoint'
   RDSSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     DeletionPolicy: Delete
@@ -109,8 +130,28 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
   # ─── DATABASE SETUP ─────────────────────────────────────────────────────────
+  DBSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Delete
+    Properties:
+      Description: 'RDS database connection details for React-AWS-App'
+      Name: !Sub '${AppName}-db-secret-${Environment}'
+      GenerateSecretString:
+        SecretStringTemplate: !Sub '{"username": "${DBUser}", "port": ${DBPort}, "dbname": "${DBName}"}'
+        GenerateStringKey: "password"
+        PasswordLength: 16
+        ExcludeCharacters: '"@/'
+  DBSecretAttachment:
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    DeletionPolicy: Delete
+    DependsOn: ReactAwsAppDatabase
+    Properties:
+      SecretId: !Ref DBSecret
+      TargetId: !Ref ReactAwsAppDatabase
+      TargetType: AWS::RDS::DBInstance
   ReactAwsAppDatabase:
     Type: AWS::RDS::DBInstance
+    DependsOn: DBSecret 
     DeletionPolicy: Delete
     Properties:
       DBInstanceIdentifier: !Sub '${AppName}-db-${Environment}'
@@ -121,7 +162,7 @@ Resources:
       Engine: postgres
       EngineVersion: '16.13'
       MasterUsername: !Ref DBUser
-      MasterUserPassword: !Ref DBPassword
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${AppName}-db-secret-${Environment}:SecretString:password}}'
       DBSubnetGroupName: !Ref RDSSubnetGroup
       PubliclyAccessible: false
       DeleteAutomatedBackups: true
@@ -148,6 +189,15 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SecretManagerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref DBSecret
   DBInitFunction:
     Type: AWS::Lambda::Function
     DeletionPolicy: Delete
@@ -165,12 +215,7 @@ Resources:
           - !Ref PrivateSubnetB
       Environment:
         Variables:
-          DB_HOST: !GetAtt ReactAwsAppDatabase.Endpoint.Address
-          DB_PORT: !GetAtt ReactAwsAppDatabase.Endpoint.Port
-          DB_NAME: !Ref DBName
-          DB_USER: !Ref DBUser
-          DB_PASSWORD: !Ref DBPassword
-          ENVIRONMENT: !Ref Environment
+          SECRET_ARN: !Ref DBSecret
       Code:
         S3Bucket: !Ref Bucket
         S3Key: !Sub db-init-${CodeVersion}.zip
@@ -191,12 +236,7 @@ Resources:
           - !Ref PrivateSubnetB
       Environment:
         Variables:
-          DB_HOST: !GetAtt ReactAwsAppDatabase.Endpoint.Address
-          DB_PORT: !GetAtt ReactAwsAppDatabase.Endpoint.Port
-          DB_NAME: !Ref DBName
-          DB_USER: !Ref DBUser
-          DB_PASSWORD: !Ref DBPassword
-          ENVIRONMENT: !Ref Environment
+          SECRET_ARN: !Ref DBSecret
       Code:
         S3Bucket: !Ref Bucket
         S3Key: !Sub user-rights-${CodeVersion}.zip
